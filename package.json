@@ -1,0 +1,23 @@
+{
+  "name": "crossword",
+  "version": "1.0.0",
+  "description": "simple crossword game written in ES6",
+  "main": "Crossword.js",
+  "dependencies": {
+    "underscore": "^1.8.3"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://tiotao@github.com/Tiotao/crossword.js.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Tiotao/crossword.js/issues"
+  },
+  "homepage": "https://github.com/Tiotao/crossword.js#readme"
+}

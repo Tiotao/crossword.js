@@ -1,12 +1,9 @@
 "use strict";
 
 var _ = require('underscore');
-const EMPTY_SPACE = 'EMPTY_SPACE', 
-      HORIZONTAL_SPACE = 'HORIZONTAL_SPACE', 
-      VERTICAL_SPACE = 'VERTICAL_SPACE';
-
-
-
+const EMPTY_SPACE = ['*', '*'],
+      HORIZONTAL_ENTRY = 0, 
+      VERTICAL_ENTRY = 1;
 
 class Crossword {
 	
@@ -14,7 +11,7 @@ class Crossword {
 		this.size = size;
 		this.horizontalEntries = [];
 		this.verticalEntries = [];
-		this.map = new ReferenceMap(size);
+		this.map = new WordMap(size);
 	}
 
 	setHorizontalEntries(entryList){
@@ -41,29 +38,57 @@ class Crossword {
 		return this.verticalEntries;
 	}
 
+	isEntryCorrect(type, entryIndex){
+		let entry;
+		if(type == HORIZONTAL_ENTRY){
+			entry = this.horizontalEntries[entryIndex];
+		} else {
+			entry = this.verticalEntries[entryIndex];
+		}
+		let map = this.map;
+		let spaceRefs = entry.getSpaceRefs();
+		return _.every(spaceRefs, v => map.getSpace(v.getPosition()).isCorrect());
+	}
+
+	fillSpace(position, value){
+		this.map.getSpace(position).setValue(value);
+		console.log(this.map.getSpace(position))
+	}
 
 	printCrossword(){
+		for (var i = 0; i <= this.size; i++){
+			let rowString = '';
+			for(var j = 0; j <= this.size; j++){
+				let space = this.map.getSpace([i, j]);
+				let content = "*";
+				if(!space.isEmptySpace()){
+					content = space.getAnswer();
+				}
+				rowString = rowString + content + ' ';
+			}
+			console.log(rowString);
+		}
+
 
 		for (var i = 0; i <= this.size; i++){
 			let rowString = '';
 			for(var j = 0; j <= this.size; j++){
-				let spaceRef = this.map.getReference(i, j);
-				let space = spaceRef.getSpace(this.getHorizontalEntries(), this.getVerticalEntries());
-				let content = "*"
-				if(!_.isNull(space)){
-					content = space.getAnswer();
+				let space = this.map.getSpace([i, j]);
+				let content = " * ";
+				if(!space.isEmptySpace()){
+					content = space.getEntryIndexes()[0] + '/' + space.getEntryIndexes()[1];
 				}
 				rowString = rowString + content + ' ';
-				
 			}
 			console.log(rowString);
 		}
+
 	}
 
 }
 
 
-class ReferenceMap {
+class WordMap {
 
 	constructor(size){
 		this.size = size;
@@ -75,112 +100,115 @@ class ReferenceMap {
 		for (var i  = 0; i <= this.size; i ++){
 			let row = [];
 			for (var j = 0; j <= this.size; j ++){
-				row.push(new SpaceReference(EMPTY_SPACE, -1, -1));
+				row.push(new Space(['*', '*'], [i, j]));
 			}
 			this.map.push(row);
 		}
 	}
 
-	getReference(x, y){
-		return this.map[x][y];
+	getSpace(position){
+		return this.map[position[0]][position[1]];
 	}
 
 	addEntry(entry, entryIndex){
 		var entryType = entry.getType();
 		let self = this;
-		_.each(entry.getSpaces(), function(space, spaceIndex){
 
-			let position = space.getPosition();
-			let spaceReference = self.getReference(position[0], position[1]);
-			spaceReference.setIndexes(entryIndex, spaceIndex);
-			spaceReference.setType(entryType);
+		_.each(entry.getSpaceRefs(), function(spaceRef, spaceIndex){
+
+			let position = spaceRef.getPosition();
+			let space = self.getSpace(position);
+
+			space.setAnswer(entry.getAnswer()[spaceIndex]);
+
+
+			// console.log([entryType, entryIndex])
+			space.setEntryIndexes(entryType, entryIndex);
+
+			// console.log(space)
 		})
+		// console.log(self.map[1])
 	}
 
 }
 
 class SpaceReference {
 
-	constructor(type, entryIndex, spaceIndex){
-		this.type = type;
-		this.entryIndex = entryIndex;
-		this.spaceIndex = spaceIndex;
+	constructor(x, y){
+		this.x = x;
+		this.y = y;
 	}
 
-	setIndexes(entryIndex, spaceIndex){
-		this.entryIndex = entryIndex;
-		this.spaceIndex = spaceIndex;
+	getPosition(){
+		return [this.x, this.y];
 	}
 
-	setType(type){
-		this.type = type;
-	}
-
-	getSpace(horizontalEntries, verticalEntries){
-
-		let spaceIndex = this.spaceIndex;
-		let entryIndex = this.entryIndex;
-		if(this.type == HORIZONTAL_SPACE){
-			return horizontalEntries[entryIndex].getSpace(spaceIndex);
-		} else if (this.type == VERTICAL_SPACE){
-			return verticalEntries[entryIndex].getSpace(spaceIndex);
-		} else {
-			return null;
-		}
+	getSpace(spaceCollection, x, y){
+		return spaceCollection[x][y];
 	}
 
 }
 
 class Entry {
 
-	constructor(size, type){
-		this.size = size;
+	constructor(type, answer){
+		this.size = answer.length;
 		this.type = type;
-		this.spaces = []
+		this.spaceRefs = []
+		// same length as size
+		this.answer = answer;
 	}
 
 	getType(){
 		return this.type;
 	}
 
-	setSpaces(spaceList){
-		if(spaceList.length == this.size){
-			this.spaces = spaceList;
+	getAnswer(){
+		return this.answer;
+	}
+
+	setSpaceRefs(spaceRefList){
+		if(spaceRefList.length == this.size){
+			this.spaceRefs = spaceRefList;
 		} else {
 			throw new Error('spaceList does not have the right length');
 		}
 	}
 
-	getSpaces(){
-		return this.spaces;
+	getSpaceRefs(){
+		return this.spaceRefs;
 	}
 
-	getSpace(index){
+	getSpaceRef(index){
 		return this.spaces[index];
-	}
-
-	isCorrect(){
-		let spaces = this.getSpaces();
-		if(spaces.length > 0){
-			return _.every(spaces, v => v.isCorrect());
-		} else {
-			return false;
-		}
 	}
 
 }
 
 class Space {
 
-	constructor(answer, position){
-		this.answer = answer;
+	constructor(entryIndexes, position){
+		this.answer = '*';
 		this.value = '';
+		this.entryIndexes = entryIndexes;
 		this.x = position[0];
 		this.y = position[1];
 	}
 
+	setEntryIndexes(entryType, entryIndex){
+		this.entryIndexes[entryType] = entryIndex;
+	}
+
+	getEntryIndexes(entryIndexes){
+		return this.entryIndexes;
+	}
+
 	isCorrect(){
-		return this.getValue() === this.getAnswer();
+		return this.value == this.answer;
+	}
+
+	isEmptySpace(){
+		return this.entryIndexe == EMPTY_SPACE;
 	}
 
 	getValue(){
@@ -189,6 +217,10 @@ class Space {
 
 	getAnswer(){
 		return this.answer;
+	}
+
+	setAnswer(answer){
+		this.answer = answer;
 	}
 
 	getPosition(){
@@ -201,19 +233,31 @@ class Space {
 
 }
 
+// testing
+
 var crossword = new Crossword(2);
 
-var aa = new Space('A', [0, 0]);
-var ab = new Space('B', [0, 1]);
-var bb = new Space('C', [1, 1]);
-var cb = new Space('D', [2, 1]);
+var aa = new SpaceReference(0, 0);
+var ab = new SpaceReference(0, 1);
+var bb = new SpaceReference(1, 1);
+var cb = new SpaceReference(2, 1);
+var ca = new SpaceReference(2, 0);
+var cc = new SpaceReference(2, 2);
 
-var entryOne = new Entry(2, HORIZONTAL_SPACE);
-var entryTwo = new Entry(2, VERTICAL_SPACE);
-entryOne.setSpaces([aa, ab]);
-entryTwo.setSpaces([bb, cb]);
+var entryOne = new Entry(HORIZONTAL_ENTRY, 'AB');
+var entryTwo = new Entry(VERTICAL_ENTRY, 'BCD');
+var entryThree = new Entry(HORIZONTAL_ENTRY, 'FDA')
+
+entryOne.setSpaceRefs([aa, ab]);
+entryTwo.setSpaceRefs([ab, bb, cb]);
+entryThree.setSpaceRefs([ca, cb, cc]);
 
 crossword.setVerticalEntries([entryTwo]);
-crossword.setHorizontalEntries([entryOne]);
+crossword.setHorizontalEntries([entryOne, entryThree]);
 
 crossword.printCrossword();
+
+crossword.fillSpace([0, 0], 'A');
+crossword.fillSpace([0, 1], 'B');
+
+console.log(crossword.isEntryCorrect(HORIZONTAL_ENTRY, 0))
